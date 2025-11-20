@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+const BACKEND_BASE_URL = 'http://localhost:3001/api/tmdb';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
-const useFetchMovies = (apiKey, query = '') => {
+const useFetchMovies = (apiKey, query = '', type = 'popular', mediaType = 'movie') => {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,9 +21,9 @@ const useFetchMovies = (apiKey, query = '') => {
       try {
         let url = '';
         if (query) {
-          url = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${query}`;
+          url = `${BACKEND_BASE_URL}/${mediaType}/${type}?query=${query}`; // Query to backend
         } else {
-          url = `${TMDB_BASE_URL}/movie/popular?api_key=${apiKey}`;
+          url = `${BACKEND_BASE_URL}/${mediaType}/${type}`; // Popular/trending to backend
         }
         
         const response = await fetch(url);
@@ -32,15 +32,15 @@ const useFetchMovies = (apiKey, query = '') => {
         }
         const data = await response.json();
         
-        const formattedMovies = data.results.map(movie => ({
-          id: movie.id,
-          title: movie.title,
-          overview: movie.overview,
-          poster: movie.poster_path ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}` : 'https://via.placeholder.com/150x225?text=No+Poster',
-          backdrop_path: movie.backdrop_path ? `${TMDB_IMAGE_BASE_URL}${movie.backdrop_path}` : 'https://via.placeholder.com/1280x720?text=No+Backdrop',
-          // Add more metadata as needed
-          release_date: movie.release_date,
-          vote_average: movie.vote_average,
+        const formattedMovies = data.results.map(item => ({
+          id: item.id,
+          title: item.title || item.name,
+          overview: item.overview,
+          poster: item.poster_path ? `${TMDB_IMAGE_BASE_URL}${item.poster_path}` : 'https://via.placeholder.com/150x225?text=No+Poster',
+          backdrop_path: item.backdrop_path ? `${TMDB_IMAGE_BASE_URL}${item.backdrop_path}` : 'https://via.placeholder.com/1280x720?text=No+Backdrop',
+          release_date: item.release_date || item.first_air_date,
+          vote_average: item.vote_average,
+          media_type: item.media_type || mediaType,
         }));
         setMovies(formattedMovies);
 
@@ -52,7 +52,7 @@ const useFetchMovies = (apiKey, query = '') => {
     };
 
     fetchMovies();
-  }, [apiKey, query]);
+  }, [apiKey, query, type, mediaType]);
 
   return { movies, loading, error };
 };

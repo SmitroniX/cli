@@ -13,7 +13,8 @@ const MovieCard = ({ movie }) => {
         </Card.Text>
         {movie.release_date && <Card.Text>Release Date: {movie.release_date}</Card.Text>}
         {movie.vote_average && <Card.Text>Rating: {movie.vote_average}/10</Card.Text>}
-        <Button variant="primary" as={Link} to={`/details/${movie.id}`}>View Details</Button>
+        <Button variant="primary" as={Link} to={`/details/${movie.id}`} className="me-2">View Details</Button>
+        <Button variant="danger" as={Link} to={`/watch/${movie.id}`}>Watch Now</Button>
       </Card.Body>
     </Card>
   );

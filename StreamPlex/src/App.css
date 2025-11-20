@@ -1,5 +1,8 @@
 /* Custom styles for Netflix-like UI */
 
+@import "slick-carousel/slick/slick.css";
+@import "slick-carousel/slick/slick-theme.css";
+
 body {
   background-color: #141414; /* Netflix dark background */
   color: #e5e5e5; /* Netflix light gray text */
