@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-bubble {
+            max-width: 70%;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .chat-left {
+            background-color: #fff;
+            align-self: flex-start;
+            border-top-left-radius: 0;
+        }
+        .chat-right {
+            background-color: #dcf8c6;
+            align-self: flex-end;
+            border-top-right-radius: 0;
+        }
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex overflow-hidden">
+
+    <!-- Sidebar -->
+    <div class="w-1/4 bg-white border-r border-gray-200 flex flex-col">
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+            <h1 class="text-xl font-bold text-gray-800">WhatsApp Tracker</h1>
+            <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="mt-4 w-full bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 transition">
+                + New Import
+            </button>
+        </div>
+        <div id="importsList" class="flex-1 overflow-y-auto p-2">
+            <!-- Imports will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="flex-1 flex flex-col">
+        <div id="chatHeader" class="p-4 bg-gray-50 border-b border-gray-200 hidden">
+            <h2 id="currentImportName" class="text-lg font-semibold">Select an import</h2>
+        </div>
+        <div id="chatContainer" class="flex-1 overflow-y-auto p-4 chat-container bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')]">
+            <div class="text-center text-gray-500 mt-10">Select an import from the sidebar to view chats.</div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg w-96">
+            <h2 class="text-xl font-bold mb-4">Upload WhatsApp Export</h2>
+            <p class="text-sm text-gray-600 mb-4">Upload the .zip file exported from WhatsApp.</p>
+            <form id="uploadForm">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">Import Name</label>
+                    <input type="text" name="name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" placeholder="e.g. Family Group">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">Zip File</label>
+                    <input type="file" name="backup" accept=".zip" required class="mt-1 block w-full">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="document.getElementById('uploadModal').classList.add('hidden')" class="bg-gray-300 text-gray-700 px-4 py-2 rounded">Cancel</button>
+                    <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Upload</button>
+                </div>
+            </form>
+            <div id="uploadStatus" class="mt-2 text-sm text-center hidden">Uploading and processing...</div>
+        </div>
+    </div>
+
+    <script>
+        // Load imports on start
+        loadImports();
+
+        async function loadImports() {
+            const res = await fetch('/api/imports');
+            const imports = await res.json();
+            const list = document.getElementById('importsList');
+            list.innerHTML = '';
+            imports.forEach(imp => {
+                const div = document.createElement('div');
+                div.className = 'p-3 hover:bg-gray-100 cursor-pointer rounded mb-1 border-b border-gray-100';
+                div.innerHTML = `
+                    <div class="font-medium">${imp.name}</div>
+                    <div class="text-xs text-gray-500">${new Date(imp.imported_at).toLocaleString()}</div>
+                `;
+                div.onclick = () => loadChat(imp.id, imp.name);
+                list.appendChild(div);
+            });
+        }
+
+        async function loadChat(id, name) {
+            document.getElementById('chatHeader').classList.remove('hidden');
+            document.getElementById('currentImportName').innerText = name;
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = '<div class="text-center mt-10">Loading...</div>';
+
+            const res = await fetch(`/api/imports/${id}/messages`);
+            const messages = await res.json();
+            
+            container.innerHTML = '';
+            
+            let lastSender = '';
+            
+            messages.forEach(msg => {
+                const isMe = msg.sender === 'Me' || msg.sender.includes('You'); // Simple heuristic
+                const div = document.createElement('div');
+                div.className = `chat-bubble ${isMe ? 'chat-right' : 'chat-left'} shadow-sm`;
+                
+                let contentHtml = `<div class="text-sm">${msg.content}</div>`;
+                
+                if (msg.has_media && msg.gofile_download_page) {
+                    contentHtml += `
+                        <div class="mt-2 p-2 bg-gray-100 rounded text-xs">
+                            <div class="font-bold text-blue-600">Media Attachment</div>
+                            <a href="${msg.gofile_download_page}" target="_blank" class="text-blue-500 hover:underline break-all">
+                                View on GoFile (${msg.media_filename})
+                            </a>
+                        </div>
+                    `;
+                }
+
+                div.innerHTML = `
+                    <div class="text-xs font-bold text-gray-600 mb-1">${msg.sender}</div>
+                    ${contentHtml}
+                    <div class="text-[10px] text-gray-400 text-right mt-1">${msg.timestamp}</div>
+                `;
+                container.appendChild(div);
+            });
+            
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        }
+
+        document.getElementById('uploadForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const status = document.getElementById('uploadStatus');
+            status.classList.remove('hidden');
+            status.innerText = 'Uploading and processing... This may take a while for large files.';
+            
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    status.innerText = 'Success!';
+                    setTimeout(() => {
+                        document.getElementById('uploadModal').classList.add('hidden');
+                        status.classList.add('hidden');
+                        e.target.reset();
+                        loadImports();
+                    }, 1000);
+                } else {
+                    status.innerText = 'Error: ' + result.error;
+                }
+            } catch (err) {
+                status.innerText = 'Error: ' + err.message;
+            }
+        };
+    </script>
+</body>
+</html>
